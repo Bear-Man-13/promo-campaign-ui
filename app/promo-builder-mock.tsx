@@ -1,3 +1,4 @@
+// app/promo-builder-mock.tsx
 "use client";
 import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
