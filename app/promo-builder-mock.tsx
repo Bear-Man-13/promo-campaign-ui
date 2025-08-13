@@ -317,26 +317,6 @@ export default function PromoBuilderMock() {
             </CardContent>
           </Card>
 
-          {/* Actions for fixed payout */}
-          {promoType === "fixed" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Actions required to earn reward</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Label>Match when</Label>
-                  <Select value={actionsLogic} onValueChange={(v: "ALL" | "ANY") => setActionsLogic(v)}>
-                    <SelectTrigger className="w-44">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All actions completed</SelectItem>
-                      <SelectItem value="ANY">Any one action</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="space-y-3">
                   {actions.map((a) => (
                     <div key={a.id} className="rounded-2xl border p-3 grid md:grid-cols-12 gap-3 items-center">
@@ -609,6 +589,18 @@ export default function PromoBuilderMock() {
               </Tabs>
             </CardContent>
           </Card>
+
+      {/* Target Objectives for fixed payout */}
+{promoType === "fixed" && (
+  <Card>
+    <CardHeader>
+      <CardTitle>Target Objectives</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      {/* The same action logic and UI you had before */}
+    </CardContent>
+  </Card>
+)}
 
           {/* Cost handling */}
           <Card>
