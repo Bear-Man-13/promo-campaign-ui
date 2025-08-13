@@ -1,7 +1,4 @@
-Here you go. Replace the contents of app/promo-builder-mock.tsx with this file.
-
 "use client";
-
 import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
