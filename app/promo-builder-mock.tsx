@@ -588,7 +588,7 @@ export default function PromoBuilderMock() {
                 </TabsContent>
               </Tabs>
             </CardContent>
-          </Card>
+          </Card>   {/* closes Audience */}
 
       {/* Target Objectives for fixed payout */}
 {promoType === "fixed" && (
