@@ -1,5 +1,3 @@
-// app/promo-builder-mock.tsx
-"use client";
 import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +20,7 @@ const numberOr = (v: string | number, fallback = 0) => {
 
 const defaultRule = () => ({
   id: crypto.randomUUID(),
-  field: "days_since_last_install", // must match a key from fields[]
+  field: "days_since_install",
   op: ">=",
   value: "7",
   value2: "",
