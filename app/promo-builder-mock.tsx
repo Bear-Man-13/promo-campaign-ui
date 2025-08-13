@@ -72,8 +72,26 @@ export default function PromoBuilderMock() {
   const [testUid, setTestUid] = useState("user-123");
   const [testResult, setTestResult] = useState<string | null>(null);
 
-  const handleAddRule = () => setRules((rs) => [...rs, defaultRule()]);
-  const handleDelRule = (id: string) => setRules((rs) => rs.filter((r) => r.id !== id));
+  // NEW: Fixed-payout Actions model
+  type ActionType = "install_and_milestones" | "milestones_existing" | "spend_any_game";
+  type SpendOp = ">" | ">=" | "=" | "<=" | "<";
+  type ActionItem =
+    | { id: string; type: "install_and_milestones"; installCount: string; milestoneCount: string }
+    | { id: string; type: "milestones_existing"; milestoneCount: string }
+    | { id: string; type: "spend_any_game"; op: SpendOp; amount: string; currency: string };
+
+  const newAction = (t: ActionType): ActionItem => {
+    const id = crypto.randomUUID();
+    if (t === "install_and_milestones") return { id, type: t, installCount: "1", milestoneCount: "1" };
+    if (t === "milestones_existing") return { id, type: t, milestoneCount: "1" };
+    return { id, type: "spend_any_game", op: ">=", amount: "1.00", currency: "USD" };
+  };
+
+  const [actionsLogic, setActionsLogic] = useState<"ALL" | "ANY">("ALL");
+  const [actions, setActions] = useState<ActionItem[]>([]);
+
+  const handleAddAction = (t: ActionType) => setActions((arr) => [...arr, newAction(t)]);
+  const handleDelAction = (id: string) => setActions((arr) => arr.filter(a => a.id !== id));
 
   const payload = useMemo(() => {
     const base: any = {
@@ -92,16 +110,34 @@ export default function PromoBuilderMock() {
         event_webhook: { method: "POST", url: webhookUrl },
       },
     };
+
+    if (promoType === "fixed") {
+      base.actions = {
+        logic: actionsLogic,
+        items: actions.map(a => {
+          if (a.type === "install_and_milestones") return { type: a.type, install_count: Number(a.installCount), milestone_count: Number(a.milestoneCount) };
+          if (a.type === "milestones_existing") return { type: a.type, milestone_count: Number(a.milestoneCount) };
+          return { type: a.type, op: a.op, amount: Number(a.amount), currency: a.currency };
+        })
+      };
+    }
+
     return base;
-  }, [promoName, startDate, endDate, promoType, multiplier, fixedAmount, audType, uidsText, rules, ruleLogic, costMode, targetMargin, capsEnabled, userCap, budgetCap, nonBoostedOnly, eligibilityEndpoint, webhookUrl]);
+  }, [promoName, startDate, endDate, promoType, multiplier, fixedAmount, audType, uidsText, rules, ruleLogic, costMode, targetMargin, capsEnabled, userCap, budgetCap, nonBoostedOnly, eligibilityEndpoint, webhookUrl, actionsLogic, actions]);
 
   const valid = useMemo(() => {
     if (!promoName.trim()) return false;
-    if (promoType === "multiplier" && (!multiplier || numberOr(multiplier, 0) < 1 || !Number.isInteger(numberOr(multiplier, -1)))) return false;
-    if (promoType === "fixed" && numberOr(fixedAmount, 0) <= 0) return false;
+    if (promoType === "multiplier") {
+      const m = numberOr(multiplier, 0);
+      if (!m || m < 1 || !Number.isInteger(m)) return false;
+    }
+    if (promoType === "fixed") {
+      if (numberOr(fixedAmount, 0) <= 0) return false;
+      if (actions.length === 0) return false; // need at least one action for fixed payout
+    }
     if (audType === "dynamic" && rules.length === 0) return false;
     return true;
-  }, [promoName, promoType, multiplier, fixedAmount, audType, rules]);
+  }, [promoName, promoType, multiplier, fixedAmount, audType, rules, actions]);
 
   const downloadConfig = () => {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -188,6 +224,112 @@ export default function PromoBuilderMock() {
               )}
             </CardContent>
           </Card>
+
+          {/* NEW: Actions for fixed payout */}
+          {promoType === "fixed" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Actions required to earn reward</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Label>Match when</Label>
+                  <Select value={actionsLogic} onValueChange={(v: any) => setActionsLogic(v)}>
+                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All actions completed</SelectItem>
+                      <SelectItem value="ANY">Any one action</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  {actions.map((a) => (
+                    <div key={a.id} className="rounded-xl border p-3 grid md:grid-cols-12 gap-3 items-center">
+                      {/* Type label */}
+                      <div className="md:col-span-3">
+                        <Badge variant="secondary">
+                          {a.type === "install_and_milestones" && "Install + milestones"}
+                          {a.type === "milestones_existing" && "Milestones in existing installs"}
+                          {a.type === "spend_any_game" && "Spend in any game"}
+                        </Badge>
+                      </div>
+
+                      {/* Editors per type */}
+                      {a.type === "install_and_milestones" && (
+                        <>
+                          <div className="md:col-span-3 space-y-1">
+                            <Label>Install count</Label>
+                            <Input inputMode="numeric" value={a.installCount}
+                              onChange={(e) => setActions(arr => arr.map(x => x.id === a.id ? { ...(x as any), installCount: e.target.value.replace(/[^0-9]/g, "") } : x))} />
+                          </div>
+                          <div className="md:col-span-3 space-y-1">
+                            <Label>Milestone count</Label>
+                            <Input inputMode="numeric" value={a.milestoneCount}
+                              onChange={(e) => setActions(arr => arr.map(x => x.id === a.id ? { ...(x as any), milestoneCount: e.target.value.replace(/[^0-9]/g, "") } : x))} />
+                          </div>
+                        </>
+                      )}
+
+                      {a.type === "milestones_existing" && (
+                        <div className="md:col-span-3 space-y-1">
+                          <Label>Milestone count</Label>
+                          <Input inputMode="numeric" value={(a as any).milestoneCount}
+                            onChange={(e) => setActions(arr => arr.map(x => x.id === a.id ? { ...(x as any), milestoneCount: e.target.value.replace(/[^0-9]/g, "") } : x))} />
+                        </div>
+                      )}
+
+                      {a.type === "spend_any_game" && (
+                        <>
+                          <div className="md:col-span-2 space-y-1">
+                            <Label>Operator</Label>
+                            <Select value={(a as any).op} onValueChange={(v: any) => setActions(arr => arr.map(x => x.id === a.id ? { ...(x as any), op: v } : x))}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value=">">&gt;</SelectItem>
+                                <SelectItem value=">=">&gt;=</SelectItem>
+                                <SelectItem value="=">=</SelectItem>
+                                <SelectItem value="<=">&lt;=</SelectItem>
+                                <SelectItem value="<">&lt;</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="md:col-span-3 space-y-1">
+                            <Label>Amount</Label>
+                            <Input inputMode="decimal" value={(a as any).amount}
+                              onChange={(e) => setActions(arr => arr.map(x => x.id === a.id ? { ...(x as any), amount: e.target.value.replace(/[^0-9.]/g, "") } : x))} />
+                          </div>
+                          <div className="md:col-span-2 space-y-1">
+                            <Label>Currency</Label>
+                            <Input value={(a as any).currency}
+                              onChange={(e) => setActions(arr => arr.map(x => x.id === a.id ? { ...(x as any), currency: e.target.value.toUpperCase().slice(0,3) } : x))} />
+                          </div>
+                        </>
+                      )}
+
+                      <div className="md:col-span-1 flex justify-end">
+                        <Button aria-label="Delete action" variant="ghost" size="icon" onClick={() => handleDelAction(a.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => handleAddAction("install_and_milestones")}>
+                    <Plus className="h-4 w-4 mr-2" />Install + milestones
+                  </Button>
+                  <Button variant="secondary" onClick={() => handleAddAction("milestones_existing")}>
+                    <Plus className="h-4 w-4 mr-2" />Milestones in existing installs
+                  </Button>
+                  <Button variant="secondary" onClick={() => handleAddAction("spend_any_game")}>
+                    <Plus className="h-4 w-4 mr-2" />Spend in any game
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
@@ -350,6 +492,7 @@ export default function PromoBuilderMock() {
                 <Badge variant="outline">{costMode === "publisher_absorbs" ? "Publisher absorbs" : `Margin target ${targetMargin}%`}</Badge>
                 {capsEnabled && <Badge variant="secondary">Caps on</Badge>}
                 {nonBoostedOnly && <Badge variant="default">Non boosted only</Badge>}
+                {promoType === "fixed" && actions.length > 0 && <Badge variant="secondary">Actions: {actionsLogic} • {actions.length}</Badge>}
               </div>
               <div className="rounded-2xl border p-4 text-sm bg-muted/40">
                 <pre className="whitespace-pre-wrap break-words text-xs">{JSON.stringify(payload, null, 2)}</pre>
